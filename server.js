@@ -10,9 +10,7 @@ dotenv.config();
 
 const app = express();
 
-/* =================================================================== */
-/* CORS (Render backend ↔ Vercel frontend, incl. preview deployments)   */
-/* =================================================================== */
+/* ======================= CORS (Render ↔ Vercel) ======================= */
 const LOCAL_ORIGINS = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
@@ -20,19 +18,17 @@ const LOCAL_ORIGINS = [
   'http://127.0.0.1:5173',
 ];
 
-// Accept either env name; prefer FRONTEND_URL in prod
 const ENV_FRONTEND =
   process.env.FRONTEND_URL ||
   process.env.CLIENT_URL ||
-  ''; // e.g., https://freelanceflow-gamma.vercel.app
+  '';
 
-// Allow all *.vercel.app preview URLs (project previews)
-const VERCEL_PREVIEW_REGEX = /^https:\/\/([a-z0-9-]+\.)?vercel\.app$/i;
-
-// You can hard-allow your main Vercel domain here for clarity:
 const FIXED_PROD_ORIGINS = [
-  'https://freelanceflow-gamma.vercel.app',
+  'https://freelanceflow-gamma.vercel.app', // your prod Vercel domain
 ];
+
+// allow any *.vercel.app preview
+const VERCEL_PREVIEW_REGEX = /^https:\/\/([a-z0-9-]+\.)?vercel\.app$/i;
 
 const ALLOWED = new Set([
   ...LOCAL_ORIGINS,
@@ -41,7 +37,7 @@ const ALLOWED = new Set([
 ]);
 
 const corsOrigin = (origin, cb) => {
-  if (!origin) return cb(null, true); // non-browser tools (curl, Postman)
+  if (!origin) return cb(null, true);            // curl/Postman
   if (ALLOWED.has(origin)) return cb(null, true);
   if (VERCEL_PREVIEW_REGEX.test(origin)) return cb(null, true);
   return cb(new Error(`CORS blocked for origin: ${origin}`));
@@ -56,29 +52,30 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-// Respond to all preflight requests explicitly
-app.options('(.*)', cors(corsOptions));
 
-/* =================================================================== */
-/* Body parsing & simple request logging                                */
-/* =================================================================== */
+/* ===== Preflight WITHOUT a path pattern (Express 5 safe) ===== */
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    // cors() already ran above and set headers
+    return res.sendStatus(204);
+  }
+  next();
+});
+
+/* ================= Body parsing & logging ==================== */
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 if (process.env.NODE_ENV !== 'test') {
   app.use((req, _res, next) => {
     console.log(
-      `${new Date().toISOString()} | ${req.method} ${req.path} | Origin: ${
-        req.get('origin') || 'none'
-      }`
+      `${new Date().toISOString()} | ${req.method} ${req.path} | Origin: ${req.get('origin') || 'none'}`
     );
     next();
   });
 }
 
-/* =================================================================== */
-/* Database connection                                                  */
-/* =================================================================== */
+/* ===================== Database connect ====================== */
 if (!process.env.MONGODB_URI) {
   console.error('❌ Missing MONGODB_URI in environment');
   process.exit(1);
@@ -92,9 +89,7 @@ mongoose
     process.exit(1);
   });
 
-/* =================================================================== */
-/* Base & health routes                                                 */
-/* =================================================================== */
+/* ================= Base & health routes ====================== */
 app.get('/', (_req, res) =>
   res.json({
     success: true,
@@ -104,7 +99,6 @@ app.get('/', (_req, res) =>
   })
 );
 
-// Standard health path
 app.get('/api/__health', (_req, res) =>
   res.json({
     ok: true,
@@ -113,9 +107,7 @@ app.get('/api/__health', (_req, res) =>
   })
 );
 
-/* =================================================================== */
-/* Route mounting                                                       */
-/* =================================================================== */
+/* ===================== Route mounting ======================== */
 const safeUse = (path, mod, label) => {
   try {
     app.use(path, require(mod));
@@ -126,15 +118,12 @@ const safeUse = (path, mod, label) => {
 };
 
 safeUse('/api/auth', './routes/auth', 'Auth');
-// Add others as they exist in your project:
 safeUse('/api/users', './routes/users', 'Users');
 safeUse('/api/projects', './routes/projects', 'Projects');
 safeUse('/api/proposals', './routes/proposals', 'Proposals');
 safeUse('/api/admin', './routes/admin', 'Admin');
 
-/* =================================================================== */
-/* Error handling & 404                                                 */
-/* =================================================================== */
+/* ================= Error handling & 404 ====================== */
 app.use((error, _req, res, _next) => {
   console.error('Error:', error.message);
   res.status(error.statusCode || 500).json({
@@ -153,9 +142,7 @@ app.use((req, res) => {
   });
 });
 
-/* =================================================================== */
-/* Socket.IO (same CORS policy)                                         */
-/* =================================================================== */
+/* ======================= Socket.IO =========================== */
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
@@ -179,11 +166,10 @@ io.on('connection', (socket) => {
   });
 });
 
-/* =================================================================== */
-/* Start server                                                         */
-/* =================================================================== */
+/* ====================== Start server ========================= */
 server.listen(PORT, () => {
   console.log(`🚀 Server listening on ${PORT}`);
   if (ENV_FRONTEND) console.log(`🌐 FRONTEND_URL/CLIENT_URL allowed: ${ENV_FRONTEND}`);
 });
+
 module.exports = app;
