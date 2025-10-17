@@ -11,15 +11,14 @@ dotenv.config();
 const app = express();
 
 /* ----------------------------- CORS SETUP ----------------------------- */
-/** Allow local dev + a single FRONTEND_URL from env (Render Static Site/custom domain) */
+/** Allow local dev + frontend URL from env (Vercel/Render) */
 const LOCAL_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:5173',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5173',
 ];
-const FRONTEND_URL = process.env.FRONTEND_URL; // e.g. https://your-frontend.onrender.com
-
+const FRONTEND_URL = process.env.FRONTEND_URL; // e.g. https://freelanceflow-gamma.vercel.app
 const ALLOWED_ORIGINS = new Set([...LOCAL_ORIGINS, ...(FRONTEND_URL ? [FRONTEND_URL] : [])]);
 
 const corsOptions = {
@@ -36,7 +35,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-/* -------------------------- Body & Logging -------------------------- */
+/* -------------------------- Body Parsing & Logging -------------------------- */
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -47,29 +46,21 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
-const adminRoutes = require("./routes/admin");
-
-// IMPORTANT: mount under /api/admin
-app.use("/api/admin", adminRoutes);
-
-/* -------------------------- Database -------------------------- */
+/* -------------------------- Database Connection -------------------------- */
 if (!process.env.MONGODB_URI) {
   console.error('❌ Missing MONGODB_URI in environment');
   process.exit(1);
 }
 
 mongoose
-  .connect(process.env.MONGODB_URI, {
-    // Add common options if you prefer:
-    // serverSelectionTimeoutMS: 10000,
-  })
+  .connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ Connected to MongoDB Atlas'))
   .catch((error) => {
     console.error('❌ MongoDB connection error:', error);
     process.exit(1);
   });
 
-/* -------------------------- Base Routes -------------------------- */
+/* -------------------------- Base & Health Routes -------------------------- */
 app.get('/', (_req, res) => {
   res.json({
     success: true,
@@ -79,7 +70,6 @@ app.get('/', (_req, res) => {
   });
 });
 
-// Standard health path Render likes
 app.get('/api/__health', (_req, res) => {
   res.json({
     ok: true,
@@ -88,7 +78,7 @@ app.get('/api/__health', (_req, res) => {
   });
 });
 
-/* -------------------------- Load Routes -------------------------- */
+/* -------------------------- Safe Route Loader -------------------------- */
 const safeUse = (path, modPath, label) => {
   try {
     app.use(path, require(modPath));
@@ -137,9 +127,6 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
     credentials: true,
   },
-  // Optional: tune timeouts for hosted envs
-  // pingTimeout: 20000,
-  // pingInterval: 25000,
 });
 
 app.set('io', io);
