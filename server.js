@@ -83,13 +83,22 @@ app.get('/api/__echo', (req, res) => res.json({
 }));
 
 /* ================= Routes ================= */
-const authRoutes = require('./routes/auth');      // will throw if missing → good
+const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
+console.log('✅ Routes mounted: Auth at /api/auth');
+
+const proposalsRoutes = require('./routes/proposals');   // <-- add this
+app.use('/api/proposals', proposalsRoutes);              // <-- and this
+console.log('✅ Routes mounted: Proposals at /api/proposals');
+
+// (optional) admin if you have it
 try {
   app.use('/api/admin', require('./routes/admin'));
+  console.log('✅ Routes mounted: Admin at /api/admin');
 } catch {
-  console.log('⚠️ admin routes missing; skipping');
+  console.log('⚠️  Admin routes missing; skipping');
 }
+
 
 /* ================= Errors & 404 ================= */
 app.use((err, _req, res, _next) => {
