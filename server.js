@@ -171,5 +171,7 @@ server.listen(PORT, () => {
   console.log(`🚀 Server listening on ${PORT}`);
   if (ENV_FRONTEND) console.log(`🌐 FRONTEND_URL/CLIENT_URL allowed: ${ENV_FRONTEND}`);
 });
-
+const authRoutes = require('./routes/auth');   // this will throw if it can't load
+app.use('/api/auth', authRoutes);
+console.log('✅ Routes mounted: Auth at /api/auth');
 module.exports = app;
