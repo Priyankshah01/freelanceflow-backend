@@ -176,5 +176,30 @@ router.post(
     res.json({ success: true, message: 'Password reset instructions sent (TODO)' });
   })
 );
+router.post('/api/auth/login', loginValidation, asyncHandler(async (req, res) => {
+  handleValidation(req);
 
+  const { email, password } = req.body;
+  const normalizedEmail = String(email).toLowerCase();
+
+  // +password to include the hashed field for comparison
+  const user = await User.findOne({ email: normalizedEmail }).select('+password');
+  if (!user || !(await user.comparePassword(password))) {
+    const err = new Error('Invalid email or password');
+    err.statusCode = 401;
+    throw err;
+  }
+
+  user.lastActive = new Date();
+  await user.save({ validateBeforeSave: false });
+
+  const token = generateToken(user._id);
+  user.password = undefined;
+
+  res.json({
+    success: true,
+    message: 'Login successful',
+    data: { user, token },
+  });
+}));
 module.exports = router;
