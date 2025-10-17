@@ -152,4 +152,21 @@ server.listen(PORT, () => {
   if (FRONTEND_URL) console.log(`🌐 FRONTEND_URL: ${FRONTEND_URL}`);
 });
 
+app.post('/api/auth/register', [
+  body('name').isLength({ min: 2, max: 50 }),
+  body('email').isEmail(),
+  body('password').isLength({ min: 6 }),
+  body('role').isIn(['client', 'freelancer'])
+], authController.register);
+
+app.post('/api/auth/login', [
+  body('email').isEmail(),
+  body('password').notEmpty()
+], authController.login);
+
+app.post('/api/auth/forgot-password', authController.forgotPassword);
+
+app.get('/api/auth/me', authenticate, authController.getMe);
+app.post('/api/auth/logout', authenticate, authController.logout);
+
 module.exports = app; // optional for testing
