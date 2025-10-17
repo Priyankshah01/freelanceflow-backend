@@ -15,6 +15,8 @@ try {
   console.warn("⚠️  requireAdmin middleware not found; admin routes are unprotected in dev.");
 }
 
+router.get('/__ping', (req, res) => res.json({ ok: true, route: '/api/admin', ts: new Date().toISOString() }));
+module.exports = router;
 /**
  * IMPORTANT:
  * Do NOT prefix these with /api/admin — server.js already mounts at /api/admin

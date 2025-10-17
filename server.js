@@ -174,4 +174,6 @@ server.listen(PORT, () => {
 const authRoutes = require('./routes/auth');   // this will throw if it can't load
 app.use('/api/auth', authRoutes);
 console.log('✅ Routes mounted: Auth at /api/auth');
+app.use('/api/admin', require('./routes/admin'));
+
 module.exports = app;
