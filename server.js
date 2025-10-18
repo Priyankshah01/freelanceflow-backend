@@ -5,6 +5,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const http = require('http');
 const { Server } = require('socket.io');
+const path = require('path'); // <-- added
 
 dotenv.config();
 
@@ -86,6 +87,7 @@ mongoose
   .then(() => console.log('✅ Connected to MongoDB Atlas'))
   .catch((err) => {
     console.error('❌ MongoDB connection error:', err);
+    console.error(err);
     process.exit(1);
   });
 
@@ -108,10 +110,10 @@ app.get('/api/__health', (_req, res) =>
 );
 
 /* ===================== Route mounting ======================== */
-const safeUse = (path, mod, label) => {
+const safeUse = (pathMount, mod, label) => {
   try {
-    app.use(path, require(mod));
-    console.log(`✅ Routes mounted: ${label} at ${path}`);
+    app.use(pathMount, require(mod));
+    console.log(`✅ Routes mounted: ${label} at ${pathMount}`);
   } catch (e) {
     console.log(`⚠️  Skipping ${label} routes (${mod})`);
   }
@@ -122,6 +124,17 @@ safeUse('/api/users', './routes/users', 'Users');
 safeUse('/api/projects', './routes/projects', 'Projects');
 safeUse('/api/proposals', './routes/proposals', 'Proposals');
 safeUse('/api/admin', './routes/admin', 'Admin');
+
+/* ==================== Serve React & Catch-all ==================== */
+// Serve the frontend build (adjust path if your build folder differs)
+const CLIENT_BUILD_DIR = path.join(__dirname, 'client', 'dist');
+app.use(express.static(CLIENT_BUILD_DIR));
+
+// For any non-API GET request, send back index.html (SPA deep links)
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
+  return res.sendFile(path.join(CLIENT_BUILD_DIR, 'index.html'));
+});
 
 /* ================= Error handling & 404 ====================== */
 app.use((error, _req, res, _next) => {
@@ -176,6 +189,5 @@ app.use('/api/auth', authRoutes);
 console.log('✅ Routes mounted: Auth at /api/auth');
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/proposals', require('./routes/proposals'));
-
 
 module.exports = app;
