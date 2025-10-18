@@ -1,56 +1,76 @@
-// routes/proposals.js
-const express = require('express');
-const router = express.Router();
+// models/Proposal.js
+const mongoose = require('mongoose');
 
-let ProposalModel = null;
-try {
-  // If you have a real Proposal model, this will work.
-  ProposalModel = require('../models/Proposal');
-} catch {
-  // No model? We'll fall back to stub data.
-  ProposalModel = null;
-}
+/* --------------------------- Subdocument Schemas --------------------------- */
 
-const VALID_STATUSES = new Set(['pending', 'accepted', 'rejected']);
+const MilestoneSchema = new mongoose.Schema(
+  {
+    title: { type: String, trim: true, required: true },
+    amount: { type: Number, min: 0, required: true },
+    dueDate: { type: Date }
+  },
+  { _id: false }
+);
 
-/**
- * GET /api/proposals?status=pending&limit=100
- * Returns proposals filtered by status (optional) with a limit (default 50).
- */
-router.get('/', async (req, res, next) => {
-  try {
-    const status = String(req.query.status || '').toLowerCase().trim();
-    const limit = Math.min(parseInt(req.query.limit || '50', 10) || 50, 200);
+const AttachmentSchema = new mongoose.Schema(
+  {
+    name: { type: String, trim: true, required: true },
+    url: { type: String, trim: true, required: true },
+    size: { type: Number, min: 0 }
+  },
+  { _id: false }
+);
 
-    if (status && !VALID_STATUSES.has(status)) {
-      const err = new Error('Invalid status. Use pending | accepted | rejected');
-      err.statusCode = 400;
-      throw err;
-    }
+const QuestionSchema = new mongoose.Schema(
+  {
+    prompt: { type: String, trim: true, required: true },
+    answer: { type: String, trim: true }
+  },
+  { _id: false }
+);
 
-    if (ProposalModel) {
-      const filter = {};
-      if (status) filter.status = status;
-      const items = await ProposalModel.find(filter).sort({ createdAt: -1 }).limit(limit);
-      return res.json({ success: true, count: items.length, data: items });
-    }
+/* -------------------------------- Main Model ------------------------------ */
 
-    // ---- Stub fallback (no DB model present) ----
-    const all = [
-      { _id: 's1', title: 'Stub A', status: 'pending', createdAt: new Date() },
-      { _id: 's2', title: 'Stub B', status: 'accepted', createdAt: new Date() },
-      { _id: 's3', title: 'Stub C', status: 'rejected', createdAt: new Date() },
-    ];
-    const filtered = status ? all.filter(p => p.status === status) : all;
-    return res.json({ success: true, count: Math.min(filtered.length, limit), data: filtered.slice(0, limit) });
-  } catch (err) {
-    next(err);
-  }
-});
+const ProposalSchema = new mongoose.Schema(
+  {
+    project: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Project',
+      required: true,
+      index: true
+    },
+    freelancer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true
+    },
 
-/** Quick ping to verify mount */
-router.get('/__ping', (req, res) => {
-  res.json({ ok: true, route: '/api/proposals', ts: new Date().toISOString() });
-});
+    coverLetter: { type: String, trim: true, required: true },
+    bidAmount: { type: Number, min: 1, required: true },
+    timeline: { type: String, trim: true, required: true },
 
-module.exports = router;
+    milestones: [MilestoneSchema],
+    attachments: [AttachmentSchema],
+    questions: [QuestionSchema],
+
+    status: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected', 'withdrawn'],
+      default: 'pending',
+      index: true
+    },
+
+    clientResponse: { type: String, trim: true },
+    respondedAt: { type: Date }
+  },
+  { timestamps: true }
+);
+
+// Prevent duplicate freelancer applications to the same project
+ProposalSchema.index({ project: 1, freelancer: 1 }, { unique: true });
+
+/* ------------------------------- Export Model ------------------------------ */
+
+module.exports =
+  mongoose.models.Proposal || mongoose.model('Proposal', ProposalSchema);

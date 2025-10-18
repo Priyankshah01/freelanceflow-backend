@@ -175,5 +175,7 @@ const authRoutes = require('./routes/auth');   // this will throw if it can't lo
 app.use('/api/auth', authRoutes);
 console.log('✅ Routes mounted: Auth at /api/auth');
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/proposals', require('./routes/proposals'));
+
 
 module.exports = app;
