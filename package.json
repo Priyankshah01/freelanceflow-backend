@@ -9,7 +9,9 @@
     "seed": "node scripts/seedData.js",
     "build": "echo \"No build step required for backend\""
   },
-  "engines": { "node": "20.x" },
+  "engines": {
+    "node": "20.x"
+  },
   "type": "commonjs",
   "dependencies": {
     "bcryptjs": "^3.0.2",

@@ -5,13 +5,21 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const http = require('http');
 const { Server } = require('socket.io');
-const path = require('path'); // <-- added
+const path = require('path');
+const fs = require('fs');
 
 dotenv.config();
 
 const app = express();
 
 /* ======================= CORS (Render ↔ Vercel) ======================= */
+/**
+ * We allow three sources of origins:
+ * 1. Local dev (5173 / 3000)
+ * 2. Your fixed prod Vercel
+ * 3. Anything you pass in .env as ALLOWED_ORIGINS (comma-separated)
+ */
+
 const LOCAL_ORIGINS = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
@@ -24,6 +32,11 @@ const ENV_FRONTEND =
   process.env.CLIENT_URL ||
   '';
 
+const ENV_ALLOWED_LIST = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 const FIXED_PROD_ORIGINS = [
   'https://freelanceflow-gamma.vercel.app', // your prod Vercel domain
 ];
@@ -31,14 +44,16 @@ const FIXED_PROD_ORIGINS = [
 // allow any *.vercel.app preview
 const VERCEL_PREVIEW_REGEX = /^https:\/\/([a-z0-9-]+\.)?vercel\.app$/i;
 
+// build the final allowlist
 const ALLOWED = new Set([
   ...LOCAL_ORIGINS,
   ...FIXED_PROD_ORIGINS,
   ...(ENV_FRONTEND ? [ENV_FRONTEND] : []),
+  ...ENV_ALLOWED_LIST,
 ]);
 
 const corsOrigin = (origin, cb) => {
-  if (!origin) return cb(null, true);            // curl/Postman
+  if (!origin) return cb(null, true); // curl/Postman/mobile
   if (ALLOWED.has(origin)) return cb(null, true);
   if (VERCEL_PREVIEW_REGEX.test(origin)) return cb(null, true);
   return cb(new Error(`CORS blocked for origin: ${origin}`));
@@ -57,7 +72,6 @@ app.use(cors(corsOptions));
 /* ===== Preflight WITHOUT a path pattern (Express 5 safe) ===== */
 app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
-    // cors() already ran above and set headers
     return res.sendStatus(204);
   }
   next();
@@ -109,12 +123,12 @@ app.get('/api/__health', (_req, res) =>
 );
 
 /* ===================== Route mounting ======================== */
-const safeUse = (path, mod, label) => {
+const safeUse = (pathRoute, mod, label) => {
   try {
-    app.use(path, require(mod));
-    console.log(`✅ Routes mounted: ${label} at ${path}`);
+    app.use(pathRoute, require(mod));
+    console.log(`✅ Routes mounted: ${label} at ${pathRoute}`);
   } catch (e) {
-    console.log(`⚠️  Skipping ${label} routes (${mod})`);
+    console.log(`⚠️  Skipping ${label} routes (${mod}) - ${e.message}`);
   }
 };
 
@@ -125,14 +139,20 @@ safeUse('/api/proposals', './routes/proposals', 'Proposals');
 safeUse('/api/admin', './routes/admin', 'Admin');
 
 /* ==================== Serve React & Catch-all ==================== */
-// Serve the frontend build (adjust path if your build folder differs)
+/**
+ * This is only needed if you ALSO build the frontend inside this repo.
+ * On Render (API-only) this folder may not exist — so we guard it.
+ */
 const CLIENT_BUILD_DIR = path.join(__dirname, 'client', 'dist');
-app.use(express.static(CLIENT_BUILD_DIR));
 
-// Express 5 compatible catch-all (exclude /api and /socket.io)
-app.get(/^\/(?!api\/|socket\.io\/).*/, (req, res) => {
-  res.sendFile(path.join(CLIENT_BUILD_DIR, 'index.html'));
-});
+if (fs.existsSync(CLIENT_BUILD_DIR)) {
+  app.use(express.static(CLIENT_BUILD_DIR));
+
+  // Express 5 compatible catch-all (exclude /api and /socket.io)
+  app.get(/^\/(?!api\/|socket\.io\/).*/, (req, res) => {
+    res.sendFile(path.join(CLIENT_BUILD_DIR, 'index.html'));
+  });
+}
 
 /* ================= Error handling & 404 ====================== */
 app.use((error, _req, res, _next) => {
@@ -149,7 +169,12 @@ app.use((req, res) => {
     success: false,
     message: `Route ${req.originalUrl} not found`,
     method: req.method,
-    availableRoutes: ['GET /', 'GET /api/__health', 'POST /api/auth/login', 'POST /api/auth/register'],
+    availableRoutes: [
+      'GET /',
+      'GET /api/__health',
+      'POST /api/auth/login',
+      'POST /api/auth/register',
+    ],
   });
 });
 
@@ -181,11 +206,7 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
   console.log(`🚀 Server listening on ${PORT}`);
   if (ENV_FRONTEND) console.log(`🌐 FRONTEND_URL/CLIENT_URL allowed: ${ENV_FRONTEND}`);
+  if (ENV_ALLOWED_LIST.length) console.log(`🌐 Extra allowed origins: ${ENV_ALLOWED_LIST.join(', ')}`);
 });
-const authRoutes = require('./routes/auth');   // this will throw if it can't load
-app.use('/api/auth', authRoutes);
-console.log('✅ Routes mounted: Auth at /api/auth');
-app.use('/api/admin', require('./routes/admin'));
-app.use('/api/proposals', require('./routes/proposals'));
 
 module.exports = app;
