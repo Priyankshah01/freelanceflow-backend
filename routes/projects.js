@@ -18,7 +18,10 @@ const {
   deleteProject,
 
   // INVITES
-  inviteFreelancer
+  inviteFreelancer,
+
+  // ✅ NEW: for /:id/status
+  updateProjectStatus,
 } = require('../controllers/projectController');
 
 const router = express.Router(); // 👈 define router BEFORE using it
@@ -137,6 +140,9 @@ router.post('/', authenticate, authorize('client'), projectValidation, createPro
 
 // Update project (owner/admin checked in controller)
 router.put('/:id', authenticate, projectValidation, updateProject);
+
+// ✅ NEW: update ONLY the project status (what the frontend is calling)
+router.patch('/:id/status', authenticate, updateProjectStatus);
 
 // Delete project (owner/admin checked in controller)
 router.delete('/:id', authenticate, deleteProject);
