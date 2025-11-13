@@ -22,6 +22,9 @@ router.get("/settings", adminController.getSettings);
 router.patch("/settings", adminController.updateSettings);
 router.get("/health", adminController.systemHealth);
 router.delete("/projects/:id", adminController.deleteProject);
+router.delete("/users/:id", adminController.deleteUser);
+router.get("/users/:id", adminController.getUserDetails);
+
 
 
 module.exports = router;
