@@ -1,7 +1,6 @@
 // controllers/adminController.js
 const User = require("../models/User");
 const Project = require("../models/Project");
-const { deleteProject } = require("./projectController");
 
 let Payment = null;
 try { Payment = require("../models/Payments"); } catch (_) {}
@@ -200,7 +199,25 @@ exports.setProjectStatus = async (req, res) => {
   }
 };
 
-/* ============================== Finance ============================== */
+/* ============================= Delete Project ============================= */
+exports.deleteProject = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const project = await Project.findByIdAndDelete(id);
+
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    return res.json({ success: true, message: "Project deleted successfully" });
+  } catch (err) {
+    console.error("admin.deleteProject error:", err);
+    return res.status(500).json({ error: "Failed to delete project" });
+  }
+};
+
+/* ============================ Finance ============================ */
 exports.financeSummary = async (req, res) => {
   try {
     if (Payment) {
@@ -379,43 +396,4 @@ exports.systemHealth = async (_req, res) => {
     console.error("admin.systemHealth error:", err);
     res.status(500).json({ status: "degraded" });
   }
-};
-/* ============================= Delete Project ============================= */
-exports.deleteProject = async (req, res) => {
-  try {
-    const id = req.params.id;
-
-    const project = await Project.findByIdAndDelete(id);
-
-    if (!project) {
-      return res.status(404).json({ error: "Project not found" });
-    }
-
-    return res.json({ success: true, message: "Project deleted successfully" });
-  } catch (err) {
-    console.error("admin.deleteProject error:", err);
-    return res.status(500).json({ error: "Failed to delete project" });
-  }
-};
-
-
-/* ============================ EXPORTS ============================ */
-module.exports = {
-  getAdminOverview,
-  getOverview,
-  listUsers,
-  updateUserRole,
-  updateUserStatus,
-  listProjects,
-  setProjectStatus,
-  deleteProject,  // <-- ADDED HERE
-  financeSummary,
-  listInvoices,
-  updateInvoiceStatus,
-  listPayouts,
-  updatePayoutStatus,
-  getSettings,
-  updateSettings,
-  listAudits,
-  systemHealth,
 };
