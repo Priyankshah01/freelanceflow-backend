@@ -21,5 +21,7 @@ router.patch("/finance/payouts/:id/status", adminController.updatePayoutStatus);
 router.get("/settings", adminController.getSettings);
 router.patch("/settings", adminController.updateSettings);
 router.get("/health", adminController.systemHealth);
+router.delete("/projects/:id", adminController.deleteProject);
+
 
 module.exports = router;

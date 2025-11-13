@@ -1,6 +1,7 @@
 // controllers/adminController.js
 const User = require("../models/User");
 const Project = require("../models/Project");
+const { deleteProject } = require("./projectController");
 
 let Payment = null;
 try { Payment = require("../models/Payments"); } catch (_) {}
@@ -378,4 +379,25 @@ exports.systemHealth = async (_req, res) => {
     console.error("admin.systemHealth error:", err);
     res.status(500).json({ status: "degraded" });
   }
+};
+
+/* ============================ EXPORTS ============================ */
+module.exports = {
+  getAdminOverview,
+  getOverview,
+  listUsers,
+  updateUserRole,
+  updateUserStatus,
+  listProjects,
+  setProjectStatus,
+  deleteProject,  // <-- ADDED HERE
+  financeSummary,
+  listInvoices,
+  updateInvoiceStatus,
+  listPayouts,
+  updatePayoutStatus,
+  getSettings,
+  updateSettings,
+  listAudits,
+  systemHealth,
 };
