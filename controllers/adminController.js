@@ -397,3 +397,70 @@ exports.systemHealth = async (_req, res) => {
     res.status(500).json({ status: "degraded" });
   }
 };
+exports.deleteUser = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const user = await User.findByIdAndDelete(id);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    return res.json({ success: true, message: "User deleted successfully" });
+  } catch (err) {
+    console.error("admin.deleteUser error:", err);
+    return res.status(500).json({ error: "Failed to delete user" });
+  }
+};
+
+/* ============================= User Details ============================= */
+exports.getUserDetails = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select("-password")
+      .lean()
+      .exec();
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    return res.json(user);
+  } catch (err) {
+    console.error("admin.getUserDetails error:", err);
+    return res.status(500).json({ error: "Failed to fetch user details" });
+  }
+};
+/* ============================ EXPORTS ============================ */
+module.exports = {
+  getAdminOverview: exports.getAdminOverview,
+  getOverview: exports.getOverview,
+
+  // Users
+  listUsers: exports.listUsers,
+  updateUserRole: exports.updateUserRole,
+  updateUserStatus: exports.updateUserStatus,
+  deleteUser: exports.deleteUser,
+  getUserDetails: exports.getUserDetails,
+
+  // Projects
+  listProjects: exports.listProjects,
+  setProjectStatus: exports.setProjectStatus,
+  deleteProject: exports.deleteProject,
+
+  // Finance
+  financeSummary: exports.financeSummary,
+  listInvoices: exports.listInvoices,
+  updateInvoiceStatus: exports.updateInvoiceStatus,
+  listPayouts: exports.listPayouts,
+  updatePayoutStatus: exports.updatePayoutStatus,
+
+  // Settings
+  getSettings: exports.getSettings,
+  updateSettings: exports.updateSettings,
+
+  // Audits
+  listAudits: exports.listAudits,
+
+  // Health
+  systemHealth: exports.systemHealth,
+};
