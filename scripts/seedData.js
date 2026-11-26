@@ -1,7 +1,11 @@
-// utils/seedData.js
+// scripts/seedData.js
+//
+// Creates the demo accounts and a few sample jobs. Safe to run more than once:
+// it only adds what is missing.
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const User = require('../models/User');
+const Project = require('../models/Project');
 
 // Load environment variables
 dotenv.config();
@@ -11,21 +15,6 @@ const seedUsers = async () => {
     // Connect to database
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('✅ Connected to MongoDB');
-
-    // Clear existing users (optional - uncomment if you want fresh start)
-    // await User.deleteMany({});
-    // console.log('🗑️  Cleared existing users');
-
-    // Check if users already exist
-    const existingUsers = await User.find({});
-    if (existingUsers.length > 0) {
-      console.log('📋 Users already exist in database:');
-      existingUsers.forEach(user => {
-        console.log(`   - ${user.name} (${user.email}) - ${user.role}`);
-      });
-      console.log('\n💡 You can use these credentials to login');
-      process.exit(0);
-    }
 
     // Create test users
     const testUsers = [
@@ -119,21 +108,77 @@ const seedUsers = async () => {
       }
     ];
 
-    // Insert users
-    const createdUsers = await User.create(testUsers);
-    console.log('✅ Successfully created test users:');
-    console.log('\n🔑 LOGIN CREDENTIALS:');
-    console.log('==========================================');
-    
-    createdUsers.forEach(user => {
-      console.log(`👤 ${user.role.toUpperCase()}: ${user.name}`);
-      console.log(`   📧 Email: ${user.email}`);
-      console.log(`   🔒 Password: password123`);
-      console.log('');
-    });
+    // Insert only the users that don't exist yet (matched by email)
+    let created = 0;
+    for (const data of testUsers) {
+      const exists = await User.exists({ email: data.email });
+      if (exists) continue;
+      await User.create(data); // create() runs the password-hashing hook
+      created += 1;
+    }
+    console.log(`👤 Users: ${created} created, ${testUsers.length - created} already existed`);
 
-    console.log('💡 All users have the same password: password123');
-    console.log('🚀 You can now use these credentials to login!');
+    // Sample open jobs so the job board isn't empty in the demo
+    const clients = await User.find({ email: { $in: ['client@test.com', 'enterprise@test.com'] } });
+    const [client, enterprise = client] = clients;
+    if (client && !(await Project.exists({ client: { $in: clients.map((c) => c._id) } }))) {
+      await Project.create([
+        {
+          title: 'Redesign onboarding flow for a fintech app',
+          description: 'We need a UX designer to audit our 6-step mobile onboarding and design a shorter flow in Figma, with a clickable prototype and handoff notes.',
+          client: client._id,
+          category: 'ui-ux-design',
+          skills: ['Figma', 'UX Research', 'Prototyping'],
+          budget: { type: 'fixed', amount: 2500 },
+          timeline: { duration: '1-3-months' },
+          experienceLevel: 'intermediate',
+          projectSize: 'medium',
+          isRemote: true,
+        },
+        {
+          title: 'Build a React dashboard for sales analytics',
+          description: 'Looking for a front-end developer to build a responsive dashboard with charts, filters and CSV export on top of our existing REST API.',
+          client: enterprise._id,
+          category: 'web-development',
+          skills: ['React', 'Tailwind CSS', 'Chart.js'],
+          budget: { type: 'hourly', hourlyRate: { min: 40, max: 65 } },
+          timeline: { duration: '1-3-months' },
+          experienceLevel: 'expert',
+          projectSize: 'large',
+          isRemote: true,
+        },
+        {
+          title: 'Logo and brand kit for a coffee roastery',
+          description: 'Small local roastery needs a logo, colour palette and simple brand guidelines for packaging and social media.',
+          client: client._id,
+          category: 'graphic-design',
+          skills: ['Branding', 'Illustrator', 'Logo Design'],
+          budget: { type: 'fixed', amount: 800 },
+          timeline: { duration: 'less-than-1-month' },
+          experienceLevel: 'entry',
+          projectSize: 'small',
+          isRemote: true,
+        },
+        {
+          title: 'Write 8 SEO blog posts about remote work',
+          description: 'We need well-researched 1,200-word articles on remote-work tools and habits, optimized for search and written in a friendly tone.',
+          client: enterprise._id,
+          category: 'content-writing',
+          skills: ['SEO', 'Copywriting', 'Research'],
+          budget: { type: 'fixed', amount: 960 },
+          timeline: { duration: 'less-than-1-month' },
+          experienceLevel: 'intermediate',
+          projectSize: 'small',
+          isRemote: true,
+        },
+      ]);
+      console.log('📁 Created 4 sample open jobs');
+    } else {
+      console.log('📁 Sample jobs already exist (or no demo client found); skipped');
+    }
+
+    console.log('\n🔑 Demo logins (password for all: password123):');
+    testUsers.forEach((u) => console.log(`   ${u.role.padEnd(10)} ${u.email}`));
 
   } catch (error) {
     console.error('❌ Error seeding data:', error);
