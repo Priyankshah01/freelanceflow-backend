@@ -1,0 +1,21 @@
+# Render Blueprint: Render → New → Blueprint → pick this repo.
+# Render asks for the values marked sync: false when you create it.
+services:
+  - type: web
+    name: freelanceflow-backend
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/__health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRE
+        value: 30d
+      - key: FRONTEND_URL
+        sync: false

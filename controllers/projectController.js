@@ -23,6 +23,16 @@ const buildPagination = (req) => {
   return { page, limit, skip };
 };
 
+// Sort names the frontend sends → Mongo sort strings. Anything else uses newest first.
+const SORT_OPTIONS = {
+  newest: '-createdAt',
+  oldest: 'createdAt',
+  budget_high: '-budget.amount',
+  budget_low: 'budget.amount',
+  '-createdAt': '-createdAt',
+  createdAt: 'createdAt',
+};
+
 /* =========================================================
  * GET /api/projects
  * =======================================================*/
@@ -32,24 +42,33 @@ const getProjects = async (req, res) => {
     const role = req.user?.role;
 
     const {
-      q,
       category,
       skills,
       status,
       mine,
-      sort
+      sort,
+      budget_type,
+      experience_level,
+      project_size,
+      timeline,
     } = req.query;
+    // `search` is what the job board sends; `q` is kept for older callers
+    const q = String(req.query.q || req.query.search || '');
 
     const { page, limit, skip } = buildPagination(req);
-    const sortBy = sort || '-createdAt';
+    const sortBy = SORT_OPTIONS[sort] || '-createdAt';
 
     const filter = {};
 
-    if (q && q.trim()) {
+    if (q.trim()) {
       filter.$text = { $search: q.trim() };
     }
 
     if (category) filter.category = category;
+    if (budget_type) filter['budget.type'] = budget_type;
+    if (experience_level) filter.experienceLevel = experience_level;
+    if (project_size) filter.projectSize = project_size;
+    if (timeline) filter['timeline.duration'] = timeline;
 
     if (skills) {
       const arr = String(skills)
@@ -64,12 +83,9 @@ const getProjects = async (req, res) => {
     if (mine && authUserId) {
       if (mine === 'client') filter.client = authUserId;
       if (mine === 'freelancer') filter.freelancer = authUserId;
-    } else if (!authUserId) {
-      if (!filter.status) filter.status = 'open';
-    } else {
-      if (!q && !category && !skills && !status) {
-        filter.status = 'open';
-      }
+    } else if (!filter.status) {
+      // the public job board only lists open projects
+      filter.status = 'open';
     }
 
     const [items, total] = await Promise.all([
